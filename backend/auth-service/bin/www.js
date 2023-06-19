@@ -8,6 +8,8 @@ var app = require("../app");
 var debug = require("debug")("auth-service:server");
 var http = require("http");
 const Eureka = require("eureka-js-client").Eureka;
+const Sequelize = require("sequelize").Sequelize;
+const config = require("../config");
 
 /**
  * Get port from environment and store in Express.
@@ -83,6 +85,7 @@ function onError(error) {
 function onListening() {
   var addr = server.address();
   createEurekaClient();
+  setUpDatabase();
   var bind = typeof addr === "string" ? "pipe " + addr : "port " + addr.port;
   debug("Listening on " + bind);
 }
@@ -113,4 +116,15 @@ function createEurekaClient() {
     },
   });
   eurekaClient.start();
+}
+
+async function setUpDatabase() {
+  const sequelize = new Sequelize(config.development);
+  try {
+    await sequelize.authenticate();
+    await sequelize.sync({});
+    console.log("Connection to DB has been established successfully.");
+  } catch (err) {
+    console.error("Unable to connect to the database:", err);
+  }
 }
