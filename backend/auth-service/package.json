@@ -7,14 +7,18 @@
     "dev": "nodemon ./bin/www"
   },
   "dependencies": {
+    "bcrypt": "^5.1.0",
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
+    "dotenv": "^16.3.1",
     "eureka-js-client": "^4.5.0",
     "express": "~4.16.1",
     "http-errors": "~1.6.3",
     "jsonwebtoken": "^9.0.0",
     "mysql2": "^3.4.0",
-    "sequelize": "^6.32.1"
+    "redis": "^4.6.7",
+    "sequelize": "^6.32.1",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "morgan": "^1.10.0",

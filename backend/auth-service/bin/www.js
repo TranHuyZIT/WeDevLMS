@@ -3,14 +3,16 @@
 /**
  * Module dependencies.
  */
-
+require("dotenv").config();
 var app = require("../app");
 var debug = require("debug")("auth-service:server");
 var http = require("http");
 const Eureka = require("eureka-js-client").Eureka;
 const Sequelize = require("sequelize").Sequelize;
 const config = require("../config");
+const sequelize = require("../services/sequelizeService");
 
+require("../models/User");
 /**
  * Get port from environment and store in Express.
  */
@@ -119,10 +121,9 @@ function createEurekaClient() {
 }
 
 async function setUpDatabase() {
-  const sequelize = new Sequelize(config.development);
   try {
     await sequelize.authenticate();
-    await sequelize.sync({});
+    await sequelize.sync({ alter: true });
     console.log("Connection to DB has been established successfully.");
   } catch (err) {
     console.error("Unable to connect to the database:", err);
