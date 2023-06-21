@@ -12,7 +12,7 @@ class TokenUtil {
     });
   }
   generateRefreshToken(user) {
-    return jwt.sign(user, this.refreshKey, {
+    return jwt.sign({ id: user.id }, this.refreshKey, {
       expiresIn: "1d",
       algorithm: "HS256",
     });
@@ -25,11 +25,12 @@ class TokenUtil {
       throw new CustomError("Invalid Token", 401);
     }
   }
-  decodeRefreshToken() {
+  decodeRefreshToken(token) {
     try {
       jwt.verify(token, this.refreshKey);
       return jwt.decode(token, this.refreshKey);
     } catch (error) {
+      console.log(error);
       throw new CustomError("Invalid Refesh Token", 401);
     }
   }

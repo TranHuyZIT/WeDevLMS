@@ -5,7 +5,7 @@ const TokenUtil = require("../services/jwtService");
 const sequelize = require("../services/sequelizeService");
 const passwordService = require("../services/passwordService");
 const { ROLES } = require("../config/constants");
-const createRedis = require("../services/redisService").client;
+const clientRedis = require("../services/redisService");
 
 class AuthController {
   /**
@@ -32,11 +32,9 @@ class AuthController {
       ).then((data) => data.toJSON());
       const accessToken = TokenUtil.generateAccessToken(newUser);
       const refreshToken = TokenUtil.generateRefreshToken(newUser);
-      const redis = await createRedis();
-      redis.set(`refreshToken-${newUser.id}`, refreshToken);
-      await redis.disconnect();
-      delete existingUser.password;
-      delete existingUser.deletedAt;
+      await clientRedis.set(`refreshToken-${newUser.id}`, refreshToken);
+      delete newUser.password;
+      delete newUser.deletedAt;
       await transaction.commit();
       res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
@@ -72,24 +70,27 @@ class AuthController {
       switch (role) {
         case ROLES.ADMIN:
           const adminUser = TokenUtil.decodeToken(token);
-          return (
-            adminUser.role === ROLES.ADMIN &&
-            res.status(200).json({
-              data: {},
-              message: "Valid Token",
-              status: 200,
-            })
-          );
+
+          if (adminUser.role !== ROLES.ADMIN)
+            throw new CustomError("Permission denied.", 401);
+          if (adminUser.role === ROLES.USER)
+            throw new CustomError("You are not allowed to do this.", 403);
+
+          return res.status(200).json({
+            data: {},
+            message: "Valid Token",
+            status: 200,
+          });
         case ROLES.USER:
           const user = TokenUtil.decodeToken(token);
-          return (
-            (user.role === ROLES.ADMIN || user.role === ROLES.USER) &&
-            res.status(200).json({
-              data: {},
-              message: "Valid Token",
-              status: 200,
-            })
-          );
+          if (user.role !== ROLES.USER && user.role !== ROLES.ADMIN)
+            throw new CustomError("Permission denied", 401);
+
+          return res.status(200).json({
+            data: {},
+            message: "Valid Token",
+            status: 200,
+          });
         default:
           return res.status(400).json({
             data: {},
@@ -123,8 +124,7 @@ class AuthController {
       if (!isValidPassword) throw new CustomError("Wrong password", 401);
       const accessToken = TokenUtil.generateAccessToken(existUser);
       const refreshToken = TokenUtil.generateRefreshToken(existUser);
-      const redis = await createRedis();
-      redis.set(`refreshToken-${existUser.id}`, refreshToken);
+      await clientRedis.set(`refreshToken-${existUser.id}`, refreshToken);
       res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
         sameSite: "strict",
@@ -153,13 +153,18 @@ class AuthController {
   async requestRefreshToken(req, res) {
     try {
       const refreshToken = req.cookies.refreshToken;
-      const id = req.params.id;
-      const redis = await createRedis();
-      const refreshTokenInRedis = await redis.get(`refreshToken-${id}`);
-      await redis.disconnect();
+      const refreshTokenInfo = TokenUtil.decodeRefreshToken(refreshToken);
+
+      const refreshTokenInRedis = await clientRedis.get(
+        `refreshToken-${refreshTokenInfo.id}`
+      );
       if (refreshToken === refreshTokenInRedis) {
-        const user = TokenUtil.decodeRefreshToken(refreshToken);
-        const accessToken = Token.generateAccessToken(user);
+        const user = await User.findOne({
+          where: {
+            id: refreshTokenInfo.id,
+          },
+        }).then((data) => data.toJSON());
+        const accessToken = TokenUtil.generateAccessToken(user);
         return res.status(200).json({
           data: {
             accessToken,
